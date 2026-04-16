@@ -5,12 +5,12 @@ import { VaultError } from "./core/errors.js";
 import { runInit } from "./primitives/init.js";
 import { runAdd } from "./primitives/add.js";
 import { runList } from "./primitives/list.js";
-import { runUnlock } from "./primitives/unlock.js";
-import { runLock } from "./primitives/lock.js";
+import { runPull } from "./primitives/pull.js";
+import { runSync } from "./primitives/sync.js";
+import { runWipeWork } from "./primitives/wipe-work.js";
 import { runBuild } from "./primitives/build.js";
 import { runStatus } from "./primitives/status.js";
 import { runHistory } from "./primitives/history.js";
-import { runExport } from "./primitives/export.js";
 import { runRotatePassphrase } from "./primitives/rotate-passphrase.js";
 import { runMigrate } from "./primitives/migrate.js";
 import { runVerify } from "./primitives/verify.js";
@@ -64,18 +64,31 @@ program.command("list").description("list projects").option("--json", "json outp
     );
   }));
 
-program.command("unlock <name>").description("decrypt project to cache")
-  .action(async (name) => withHandle(async () => {
+program.command("pull [name]").description("decrypt project_git → project_work (use --all for every project)")
+  .option("--all", "pull every project")
+  .option("--json", "json output")
+  .action(async (name, opts) => withHandle(async () => {
+    if (!name && !opts.all) throw new UserError("pull requires <name> or --all");
     const pw = await acquirePassphrase();
-    const uuid = await runUnlock(".", pw, name);
-    process.stdout.write(`unlocked ${name} (${uuid})\n`);
+    const r = await runPull(".", pw, opts.all ? "--all" : name);
+    emit(!!opts.json, r, () => r.pulled.map(p => `pulled ${p.name} (${p.fileCount} files)`).join("\n"));
   }));
 
-program.command("lock <name>").description("re-encrypt project and remove cache")
+program.command("sync [name]").description("re-encrypt project_work → project_git")
+  .option("--all", "sync every project")
+  .option("--json", "json output")
+  .action(async (name, opts) => withHandle(async () => {
+    if (!name && !opts.all) throw new UserError("sync requires <name> or --all");
+    const pw = await acquirePassphrase();
+    const r = await runSync(".", pw, opts.all ? "--all" : name);
+    emit(!!opts.json, r, () => r.synced.map(p => `synced ${p.name} (${p.fileCount} files)`).join("\n"));
+  }));
+
+program.command("wipe-work <name>").description("delete project_work/<name>/ (project_git untouched)")
   .action(async (name) => withHandle(async () => {
     const pw = await acquirePassphrase();
-    await runLock(".", pw, name);
-    process.stdout.write(`locked ${name}\n`);
+    await runWipeWork(".", pw, name);
+    process.stdout.write(`wiped project_work/${name}/\n`);
   }));
 
 program.command("build <name>").description("build project to original format")
@@ -89,7 +102,7 @@ program.command("build <name>").description("build project to original format")
     emit(!!opts.json, r, () => `built ${r.artifactFilename}`);
   }));
 
-program.command("status").description("show project lock state").option("--json", "json output")
+program.command("status").description("show project work state").option("--json", "json output")
   .action(async (opts) => withHandle(async () => {
     const pw = await acquirePassphrase();
     const rows = await runStatus(".", pw);
@@ -106,14 +119,6 @@ program.command("history <name>").description("show build history").option("--js
     emit(!!opts.json, rows, () =>
       rows.map(r => `${r.builtAt}\tv${r.version}\t${r.artifactFilename}`).join("\n")
     );
-  }));
-
-program.command("export <name>").description("decrypt latest built artifact to outbox/")
-  .option("--json", "json output")
-  .action(async (name, opts) => withHandle(async () => {
-    const pw = await acquirePassphrase();
-    const r = await runExport(".", pw, name);
-    emit(!!opts.json, r, () => `exported to ${r.outPath}`);
   }));
 
 async function promptNewPassphrase(): Promise<string> {
@@ -152,12 +157,16 @@ program.command("verify").description("pre-commit check: all vault files encrypt
     if (!r.ok) process.exit(1);
   }));
 
-program.command("migrate").description("migrate project file layout to hashed filenames")
+program.command("migrate").description("migrate vault layout (projects/ → project_git/, create project_work/)")
   .option("--json", "json output")
   .action(async (opts) => withHandle(async () => {
     const pw = await acquirePassphrase();
     const r = await runMigrate(".", pw);
-    emit(!!opts.json, r, () => `migrated ${r.projectsMigrated} projects, renamed ${r.filesRenamed} files`);
+    emit(!!opts.json, r, () =>
+      `migrated ${r.projectsMigrated} projects, renamed ${r.filesRenamed} files` +
+      (r.layoutMigrated ? ", renamed projects/ → project_git/" : "") +
+      (r.workDirsCreated > 0 ? `, created ${r.workDirsCreated} work dir(s)` : "")
+    );
   }));
 
 program.command("rotate-passphrase").description("change the vault passphrase (re-encrypts vault.db)")

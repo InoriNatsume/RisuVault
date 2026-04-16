@@ -1,9 +1,9 @@
-import { mkdirSync, rmSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { mkdirSync, rmSync, copyFileSync } from "node:fs";
+import { join, relative, resolve, dirname } from "node:path";
 import { readConfig } from "../core/config.js";
 import { deriveKey, encryptFile, computeHashedName } from "../core/crypto.js";
 import { openDb, insertProject, getProjectByName, upsertProjectFile } from "../core/db.js";
-import { cacheDir, dbPath, projectDir } from "../core/paths.js";
+import { vaultDir, dbPath, projectGitDir, projectWorkDir } from "../core/paths.js";
 import { newUuid } from "../core/uuid.js";
 import { walkFiles } from "../core/walk.js";
 import { extractWith } from "../core/risupack-bridge.js";
@@ -49,14 +49,16 @@ export async function runAdd(
     const kind = FORMAT_TO_KIND[sourceFormat];
 
     const uuid = newUuid();
-    const stagingDir = join(cacheDir(root), `__staging_${uuid}`);
+    const stagingDir = join(vaultDir(root), `staging-${uuid}`);
     mkdirSync(stagingDir, { recursive: true });
 
     await extractWith(resolve(inputPath), stagingDir);
 
     const fileKey = randomBytes(32);
-    const destDir = projectDir(root, uuid);
-    mkdirSync(destDir, { recursive: true });
+    const encDir = projectGitDir(root, uuid);
+    const workDir = projectWorkDir(root, name);
+    mkdirSync(encDir, { recursive: true });
+    mkdirSync(workDir, { recursive: true });
 
     const rec: ProjectRecord = {
       uuid, name, kind, sourceFormat,
@@ -71,8 +73,14 @@ export async function runAdd(
     for (const plain of files) {
       const rel = relative(stagingDir, plain).replace(/\\/g, "/");
       const hashedName = computeHashedName(fileKey, rel);
-      const encPath = join(destDir, `${hashedName}.enc`);
+      const encPath = join(encDir, `${hashedName}.enc`);
       encryptFile(plain, encPath, fileKey);
+
+      // Also copy plaintext to project_work/<name>/
+      const workFile = join(workDir, rel);
+      mkdirSync(dirname(workFile), { recursive: true });
+      copyFileSync(plain, workFile);
+
       upsertProjectFile(db, uuid, rel, hashedName);
     }
 

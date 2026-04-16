@@ -1,24 +1,20 @@
-# RisuAI 에셋: 용량 커서 vault 대상 아님
-projects/*/assets/
+# 평문 작업 영역 — git 추적 금지
+project_work/
 
-# 복호화된 평문 작업 캐시: 절대 커밋 금지
-.risuvault/cache/
+# RisuAI 에셋: 용량 문제로 vault 대상 아님
+project_git/*/assets/
 
-# inbox: 원본 바이너리 임시 보관, vault 편입은 암호화된 projects/ 에 들어감
+# inbox: 원본 바이너리 임시 보관
 inbox/*
 !inbox/README.md
 
-# outbox: 빌드 결과 평문 복사본, git 추적하지 않음
+# outbox: 빌드 결과 평문 복사본
 outbox/*
 !outbox/README.md
 
-# 평문 레지스트리 예시 (실제 운영에선 registry.enc 만 커밋)
-.risuvault/registry.example.json
+# TypeScript build output
+/dist/
 
-# Node / 일반
+# Node
 node_modules/
 *.log
-
-# TypeScript build output (루트만 재빌드 가능, 추적 불필요)
-# projects/<uuid>/dist/ 는 암호화된 빌드 산출물이므로 여기서 제외하지 않음
-/dist/

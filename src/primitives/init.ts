@@ -1,18 +1,18 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  vaultDir, dbPath, cacheDir, projectsDir, inboxDir, outboxDir
+  vaultDir, dbPath, projectGitRoot, projectWorkRoot, inboxDir, outboxDir
 } from "../core/paths.js";
 import { generateDefaultConfig, writeConfig } from "../core/config.js";
 import { openDb, initDbSchema } from "../core/db.js";
 import { deriveKey } from "../core/crypto.js";
 import { UserError } from "../core/errors.js";
 
-const DEFAULT_GITIGNORE = `# RisuAI 에셋: 용량 문제로 vault 대상 아님
-projects/*/assets/
+const DEFAULT_GITIGNORE = `# 평문 작업 영역 — git 추적 금지
+project_work/
 
-# 복호화된 평문 작업 캐시: 절대 커밋 금지
-.risuvault/cache/
+# RisuAI 에셋: 용량 문제로 vault 대상 아님
+project_git/*/assets/
 
 # inbox: 원본 바이너리 임시 보관
 inbox/*
@@ -35,8 +35,8 @@ export async function runInit(root: string, passphrase: string): Promise<void> {
     throw new UserError(`vault already exists at ${vaultDir(root)}`);
   }
   mkdirSync(vaultDir(root), { recursive: true });
-  mkdirSync(cacheDir(root), { recursive: true });
-  mkdirSync(projectsDir(root), { recursive: true });
+  mkdirSync(projectGitRoot(root), { recursive: true });
+  mkdirSync(projectWorkRoot(root), { recursive: true });
   mkdirSync(inboxDir(root), { recursive: true });
   mkdirSync(outboxDir(root), { recursive: true });
 

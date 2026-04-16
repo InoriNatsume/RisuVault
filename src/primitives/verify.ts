@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { readConfig } from "../core/config.js";
 import { deriveKey, decryptBuffer } from "../core/crypto.js";
 import { openDb, listProjects, listProjectFiles } from "../core/db.js";
-import { dbPath, projectsDir, projectDir, cacheDir, inboxDir } from "../core/paths.js";
+import { dbPath, projectGitRoot, projectGitDir } from "../core/paths.js";
 import { UserError } from "../core/errors.js";
 
 export interface VerifyResult {
@@ -33,23 +33,14 @@ export async function runVerify(root: string, passphrase: string): Promise<Verif
     violations.push(`vault.db: plaintext SQLite header detected (expected SQLCipher ciphertext)`);
   }
 
-  // 2. cache must be empty (plaintext leak risk if committed).
-  const cache = cacheDir(root);
-  if (existsSync(cache)) {
-    const entries = readdirSync(cache).filter(n => n !== ".gitkeep");
-    if (entries.length > 0) {
-      violations.push(`.risuvault/cache/ contains ${entries.length} entries — run 'risuvault lock --all' before commit`);
-    }
-  }
-
-  // 3. .gitignore must keep inbox/outbox/cache/root-dist excluded.
+  // 2. .gitignore must contain required rules.
   const gitignorePath = join(root, ".gitignore");
   if (existsSync(gitignorePath)) {
     const content = readFileSync(gitignorePath, "utf8");
     const requiredPatterns = [
+      { pattern: /^project_work\/\s*$/m, label: "project_work/" },
       { pattern: /^inbox\/\*\s*$/m, label: "inbox/*" },
       { pattern: /^outbox\/\*\s*$/m, label: "outbox/*" },
-      { pattern: /^\.risuvault\/cache\/\s*$/m, label: ".risuvault/cache/" },
       { pattern: /^\/dist\/\s*$/m, label: "/dist/" }
     ];
     for (const { pattern, label } of requiredPatterns) {
@@ -58,11 +49,11 @@ export async function runVerify(root: string, passphrase: string): Promise<Verif
       }
     }
   } else {
-    violations.push(`.gitignore missing — without it, plaintext sources in inbox/outbox may be committed`);
+    violations.push(`.gitignore missing — without it, plaintext sources in inbox/outbox/project_work may be committed`);
   }
 
-  // 4. Walk projects/ — only <64hex>.enc files allowed directly under each project, plus the assets/ dir.
-  const pRoot = projectsDir(root);
+  // 3. Walk project_git/ — only <64hex>.enc files allowed directly under each project, plus assets/ dir.
+  const pRoot = projectGitRoot(root);
   let projectsChecked = 0;
   let filesChecked = 0;
   const db = openDb(dbFile, key);
@@ -70,13 +61,13 @@ export async function runVerify(root: string, passphrase: string): Promise<Verif
     const projects = listProjects(db);
     for (const p of projects) {
       projectsChecked++;
-      const pDir = projectDir(root, p.uuid);
+      const pDir = projectGitDir(root, p.uuid);
       if (!existsSync(pDir)) {
         violations.push(`project ${p.uuid}: directory missing`);
         continue;
       }
 
-      // 4a. Expected filenames only
+      // 3a. Expected filenames only
       for (const entry of readdirSync(pDir)) {
         const full = join(pDir, entry);
         const st = statSync(full);
@@ -91,7 +82,7 @@ export async function runVerify(root: string, passphrase: string): Promise<Verif
         }
       }
 
-      // 4b. Each DB-mapped file must decrypt successfully.
+      // 3b. Each DB-mapped file must decrypt successfully.
       const files = listProjectFiles(db, p.uuid);
       for (const f of files) {
         const encPath = join(pDir, `${f.hashedName}.enc`);
@@ -109,7 +100,7 @@ export async function runVerify(root: string, passphrase: string): Promise<Verif
     }
   } finally { db.close(); }
 
-  // 5. Any project dir on disk that isn't in the DB
+  // 4. Any project dir on disk that isn't in the DB
   if (existsSync(pRoot)) {
     const dbUuids = new Set((await (async () => {
       const db2 = openDb(dbFile, key);
@@ -120,7 +111,7 @@ export async function runVerify(root: string, passphrase: string): Promise<Verif
       const full = join(pRoot, entry);
       if (!statSync(full).isDirectory()) continue;
       if (!dbUuids.has(entry)) {
-        violations.push(`projects/${entry}: on disk but not in vault.db`);
+        violations.push(`project_git/${entry}: on disk but not in vault.db`);
       }
     }
   }

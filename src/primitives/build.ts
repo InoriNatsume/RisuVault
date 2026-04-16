@@ -5,7 +5,7 @@ import { deriveKey, encryptBuffer, computeHashedName } from "../core/crypto.js";
 import {
   openDb, resolveProject, updateProjectVersion, insertBuildHistory, upsertProjectFile
 } from "../core/db.js";
-import { dbPath, projectCacheDir, projectDir, outboxDir } from "../core/paths.js";
+import { dbPath, projectGitDir, projectWorkDir, outboxDir } from "../core/paths.js";
 import { UserError } from "../core/errors.js";
 import { bumpVersion, type BumpKind } from "../core/version.js";
 import { buildWith } from "../core/risupack-bridge.js";
@@ -32,9 +32,9 @@ export async function runBuild(
   try {
     const p = resolveProject(db, ref);
     if (!p) throw new UserError(`no project: ${ref}`);
-    const cacheProjectDir = projectCacheDir(root, p.uuid);
-    if (!existsSync(cacheProjectDir)) {
-      throw new UserError(`${p.name} is locked; run unlock first`);
+    const workDir = projectWorkDir(root, p.name);
+    if (!existsSync(workDir)) {
+      throw new UserError(`project_work/${p.name}/ missing; run 'risuvault pull' first`);
     }
 
     const newVersion = bumpVersion(p.currentVersion, bump);
@@ -42,22 +42,24 @@ export async function runBuild(
     const artifactFilename = `${p.name}.${ext}`;
 
     if (p.kind === "bot") {
-      injectBotVersion(cacheProjectDir, newVersion);
-      stripBotAssets(cacheProjectDir);
+      injectBotVersion(workDir, newVersion);
+      stripBotAssets(workDir);
     } else if (p.kind === "module") {
-      injectModuleVersion(cacheProjectDir, newVersion);
+      injectModuleVersion(workDir, newVersion);
     } else if (p.kind === "preset") {
-      injectPresetVersion(cacheProjectDir, newVersion);
+      injectPresetVersion(workDir, newVersion);
     }
 
-    const outputDir = join(cacheProjectDir, "dist");
+    const outputDir = join(workDir, "dist");
     mkdirSync(outputDir, { recursive: true });
     const plaintextArtifactPath = join(outputDir, artifactFilename);
-    await buildWith(cacheProjectDir, plaintextArtifactPath);
+    await buildWith(workDir, plaintextArtifactPath);
 
     const distRelPath = `dist/${artifactFilename}`;
     const hashedName = computeHashedName(p.fileKey, distRelPath);
-    const encryptedPath = join(projectDir(root, p.uuid), `${hashedName}.enc`);
+    const encDir = projectGitDir(root, p.uuid);
+    mkdirSync(encDir, { recursive: true });
+    const encryptedPath = join(encDir, `${hashedName}.enc`);
     const tmp = encryptedPath + ".tmp";
     const blob = encryptBuffer(readFileSync(plaintextArtifactPath), p.fileKey);
     writeFileSync(tmp, blob);
@@ -80,10 +82,8 @@ export async function runBuild(
   } finally { db.close(); }
 }
 
-function injectBotVersion(cacheDir: string, version: string): void {
-  // RisuPack bot layout stores the canonical card metadata at
-  // pack/card/card.meta.json -> preservedCard.data.character_version
-  const metaPath = join(cacheDir, "pack", "card", "card.meta.json");
+function injectBotVersion(workDir: string, version: string): void {
+  const metaPath = join(workDir, "pack", "card", "card.meta.json");
   if (!existsSync(metaPath)) return;
   const obj = JSON.parse(readFileSync(metaPath, "utf8")) as {
     preservedCard?: { data?: Record<string, unknown> };
@@ -94,11 +94,8 @@ function injectBotVersion(cacheDir: string, version: string): void {
   }
 }
 
-// Vault always excludes assets, so built bot cards must declare an empty asset
-// list. Otherwise RisuAI tries to load referenced files that are not inside the
-// built charx and aborts the import with "asset ... not found".
-function stripBotAssets(cacheDir: string): void {
-  const cardMetaPath = join(cacheDir, "pack", "card", "card.meta.json");
+function stripBotAssets(workDir: string): void {
+  const cardMetaPath = join(workDir, "pack", "card", "card.meta.json");
   if (existsSync(cardMetaPath)) {
     const obj = JSON.parse(readFileSync(cardMetaPath, "utf8")) as {
       preservedCard?: { data?: Record<string, unknown> };
@@ -108,7 +105,7 @@ function stripBotAssets(cacheDir: string): void {
       writeFileSync(cardMetaPath, JSON.stringify(obj, null, 2));
     }
   }
-  const botMetaPath = join(cacheDir, "pack", "bot.meta.json");
+  const botMetaPath = join(workDir, "pack", "bot.meta.json");
   if (existsSync(botMetaPath)) {
     const obj = JSON.parse(readFileSync(botMetaPath, "utf8")) as Record<string, unknown>;
     obj.assets = [];
@@ -124,16 +121,16 @@ function applyVersionMarker(original: string | undefined | null, version: string
   return base ? `${base} [v${version}]` : `[v${version}]`;
 }
 
-function injectModuleVersion(cacheDir: string, version: string): void {
-  const modulePath = join(cacheDir, "pack", "module.json");
+function injectModuleVersion(workDir: string, version: string): void {
+  const modulePath = join(workDir, "pack", "module.json");
   if (!existsSync(modulePath)) return;
   const obj = JSON.parse(readFileSync(modulePath, "utf8")) as Record<string, unknown>;
   obj.description = applyVersionMarker(obj.description as string | undefined | null, version);
   writeFileSync(modulePath, JSON.stringify(obj, null, 2));
 }
 
-function injectPresetVersion(cacheDir: string, version: string): void {
-  const presetPath = join(cacheDir, "pack", "preset.raw.json");
+function injectPresetVersion(workDir: string, version: string): void {
+  const presetPath = join(workDir, "pack", "preset.raw.json");
   if (!existsSync(presetPath)) return;
   const obj = JSON.parse(readFileSync(presetPath, "utf8")) as Record<string, unknown>;
   const existing = obj.name as string | undefined | null;

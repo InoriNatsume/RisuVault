@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { runInit } from "../../src/primitives/init.js";
 import { runAdd } from "../../src/primitives/add.js";
-import { runUnlock } from "../../src/primitives/unlock.js";
 import { runBuild } from "../../src/primitives/build.js";
 import { runHistory } from "../../src/primitives/history.js";
 import { createTempVaultRoot } from "../helpers/tmp-vault.js";
@@ -23,8 +22,8 @@ describe("runHistory", () => {
     await runInit(tmp.root, "pw");
     const src = join(tmp.root, "s.risupreset");
     await writeFakePreset(src);
+    // add creates project_work/ — no unlock needed before build
     await runAdd(tmp.root, "pw", src, "s");
-    await runUnlock(tmp.root, "pw", "s");
     await runBuild(tmp.root, "pw", "s", "minor");
     await runBuild(tmp.root, "pw", "s", "minor");
   });

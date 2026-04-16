@@ -1,6 +1,6 @@
 ---
 name: risuvault-edit-project
-description: Use when the user wants to edit a registered vault project — unlock, modify, lock, optionally build back to RisuAI format
+description: Use when the user wants to edit a registered vault project — modify files in project_work/, sync to git, optionally build back to RisuAI format
 ---
 
 # Edit a Vault Project
@@ -14,34 +14,36 @@ description: Use when the user wants to edit a registered vault project — unlo
 - **Bots** — `character_version` auto-updated inside the card data.
 - **Modules** — a `[v1.2]` marker is appended to the module `description` (visible in RisuAI's module description area; idempotent across rebuilds).
 - **Presets** — a `[v1.2]` marker is appended to the preset `name` (visible in RisuAI's preset list; idempotent).
-- **Filename is stable**: `<name>.<ext>.enc` — no version in filename. git history + DB `build_history` track per-version SHAs.
+- **Filename is stable**: hashed `<64hex>.enc` — no version in filename. git history + DB `build_history` track per-version SHAs.
 
 ## Importing to RisuAI
 - After build, plaintext copy is in `outbox/<name>.<ext>` — import this into RisuAI directly.
-- Or run `risuvault export <name>` anytime to refresh outbox from the latest encrypted artifact (no unlock needed).
 
 ## Steps
 1. `risuvault list --json` — locate the project.
 2. Ask for passphrase.
-3. `risuvault unlock <name>` — decrypts to `.risuvault/cache/<uuid>/`.
-4. Edit files in the cache (card JSON, lorebook entries, regex, CSS, CBS/lua, prompt templates, etc.).
-5. When done:
-   - Build new versioned artifact: `risuvault build <name>` (or `--major` / `--version X.Y`).
-   - Artifact encrypted at `projects/<uuid>/dist/<name>.<ext>.enc`. Plaintext copy placed in `outbox/<name>.<ext>`.
-6. `risuvault lock <name>` — re-encrypts edits, removes plaintext cache.
-7. To import into RisuAI: use `outbox/<name>.<ext>` directly, or run `risuvault export <name>` to re-generate it from the encrypted artifact.
-8. **Before commit: run `risuvault verify`** (exit 0 required; fix any violations first).
-9. Commit with a **neutral message** (no project/character/asset names): `git add . && git commit -m "edit 1 project"`.
+3. Edit files in `project_work/<name>/` directly (card JSON, lorebook entries, regex, CSS, CBS/lua, prompt templates, etc.).
+   - If `project_work/<name>/` is missing (e.g. after a fresh clone or wipe), run `risuvault pull <name>` first.
+4. When done editing:
+   - Build new versioned artifact: `risuvault build <name>` (or `--major` / `--version X.Y`)
+   - Artifact encrypted at `project_git/<uuid>/<hashedName>.enc`. Plaintext copy placed in `outbox/<name>.<ext>`.
+5. `risuvault sync <name>` — re-encrypts all work files to `project_git/`, stages for commit.
+6. To import into RisuAI: use `outbox/<name>.<ext>` directly.
+7. **Before commit: run `risuvault verify`** (exit 0 required; fix any violations first).
+8. Commit with a **neutral message** (no project/character/asset names): `git add . && git commit -m "edit 1 project"`.
+
+## If a teammate pushed changes to project_git/ on the remote
+After `git pull`, run `risuvault pull <name>` (or `risuvault pull --all`) so your local `project_work/` reflects their changes.
 
 ## Important rules
-- NEVER commit the plaintext cache. `.risuvault/cache/` is `.gitignore`'d.
-- If `lock` fails partway, already-encrypted files are in their new state (per-file atomic rename). Re-run `lock` after fixing.
+- NEVER commit `project_work/`. It is `.gitignore`'d — plaintext files must never enter git.
+- `project_work/<name>/` is persistent and disposable: you can always recreate it with `risuvault pull <name>`.
 - Assets live outside the vault. Pair them separately if needed.
 
 ## If AI hits limits (human fallback)
-Use CLI directly. Plaintext cache at `.risuvault/cache/<uuid>/` is accessible while unlocked.
+Use CLI directly. `project_work/<name>/` is always accessible plaintext.
 
 ## Error cases
-- `<name> is locked; run unlock first` — build needs unlocked cache
+- `project_work/<name>/ missing; run 'risuvault pull' first` — work dir was wiped; run pull
 - `cannot bump version "v1-beta"` — use `--version X.Y`
 - Exit 3: wrong passphrase

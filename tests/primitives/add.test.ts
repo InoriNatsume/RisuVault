@@ -4,11 +4,12 @@ import { runAdd } from "../../src/primitives/add.js";
 import { createTempVaultRoot } from "../helpers/tmp-vault.js";
 import { existsSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { projectDir } from "../../src/core/paths.js";
+import { projectGitDir, projectWorkDir } from "../../src/core/paths.js";
 import { openDb, listProjectFiles } from "../../src/core/db.js";
 import { deriveKey } from "../../src/core/crypto.js";
 import { dbPath } from "../../src/core/paths.js";
 import { readConfig } from "../../src/core/config.js";
+import { walkFiles } from "../../src/core/walk.js";
 // @ts-ignore – internal risupack helper used only in tests
 import { encodeRisupContainer } from "risupack/dist/formats/risup/container-risup.js";
 
@@ -45,14 +46,20 @@ describe("runAdd", () => {
     expect(result.uuid).toMatch(/^[0-9a-f-]{36}$/);
     expect(result.name).toBe("sample");
 
-    // All enc files must be flat (64-hex + .enc) under project dir
-    const pDir = projectDir(tmp.root, result.uuid);
+    // All enc files must be flat (64-hex + .enc) under project_git dir
+    const pDir = projectGitDir(tmp.root, result.uuid);
     expect(existsSync(pDir)).toBe(true);
     const encFiles = readdirSync(pDir).filter(f => f.endsWith(".enc"));
     expect(encFiles.length).toBeGreaterThan(0);
     for (const f of encFiles) {
       expect(f).toMatch(/^[0-9a-f]{64}\.enc$/);
     }
+
+    // project_work/<name>/ must exist with same file count
+    const workDir = projectWorkDir(tmp.root, result.name);
+    expect(existsSync(workDir)).toBe(true);
+    const workFiles = walkFiles(workDir);
+    expect(workFiles.length).toBe(encFiles.length);
 
     // DB must have project_files rows
     const cfg = readConfig(tmp.root);

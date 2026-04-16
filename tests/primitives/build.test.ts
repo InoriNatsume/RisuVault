@@ -1,12 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { runInit } from "../../src/primitives/init.js";
 import { runAdd } from "../../src/primitives/add.js";
-import { runUnlock } from "../../src/primitives/unlock.js";
 import { runBuild } from "../../src/primitives/build.js";
 import { createTempVaultRoot } from "../helpers/tmp-vault.js";
 import { writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { projectDir, outboxDir, dbPath } from "../../src/core/paths.js";
+import { projectGitDir, outboxDir, dbPath } from "../../src/core/paths.js";
 import { openDb, listProjectFiles } from "../../src/core/db.js";
 import { deriveKey, computeHashedName } from "../../src/core/crypto.js";
 import { readConfig } from "../../src/core/config.js";
@@ -27,9 +26,9 @@ describe("runBuild", () => {
     await runInit(tmp.root, "pw");
     const src = join(tmp.root, "s.risupreset");
     await writeFakePreset(src);
+    // add creates project_work/ automatically — no unlock needed
     const r = await runAdd(tmp.root, "pw", src, "s");
     uuid = r.uuid;
-    await runUnlock(tmp.root, "pw", "s");
   });
   afterEach(() => tmp.cleanup());
 
@@ -38,7 +37,7 @@ describe("runBuild", () => {
     expect(result.version).toBe("1.1");
     expect(result.artifactFilename).toBe("s.risupreset");
 
-    // Verify via DB lookup that the hashed name exists flat in project dir
+    // Verify via DB lookup that the hashed name exists flat in project_git dir
     const cfg = readConfig(tmp.root);
     const key = await deriveKey("pw", Buffer.from(cfg.kdf.saltHex, "hex"));
     const db = openDb(dbPath(tmp.root), key);
@@ -47,7 +46,7 @@ describe("runBuild", () => {
       const distRelPath = `dist/${result.artifactFilename}`;
       const entry = rows.find(r => r.originalPath === distRelPath);
       expect(entry).toBeDefined();
-      const encArtifact = join(projectDir(tmp.root, uuid), `${entry!.hashedName}.enc`);
+      const encArtifact = join(projectGitDir(tmp.root, uuid), `${entry!.hashedName}.enc`);
       expect(existsSync(encArtifact)).toBe(true);
     } finally { db.close(); }
 

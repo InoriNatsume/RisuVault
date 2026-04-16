@@ -3,9 +3,9 @@ import { runInit } from "../../src/primitives/init.js";
 import { runAdd } from "../../src/primitives/add.js";
 import { runVerify } from "../../src/primitives/verify.js";
 import { createTempVaultRoot } from "../helpers/tmp-vault.js";
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { projectsDir } from "../../src/core/paths.js";
+import { projectGitRoot } from "../../src/core/paths.js";
 // @ts-ignore
 import { encodeRisupContainer } from "risupack/dist/formats/risup/container-risup.js";
 
@@ -34,21 +34,20 @@ describe("runVerify", () => {
     expect(r.violations).toEqual([]);
   });
 
-  it("catches a stray non-hex filename in projects/<uuid>/", async () => {
-    const projectDirs = require("node:fs").readdirSync(projectsDir(tmp.root)).filter((n: string) => n !== ".gitkeep");
+  it("catches a stray non-hex filename in project_git/<uuid>/", async () => {
+    const projectDirs = readdirSync(projectGitRoot(tmp.root)).filter((n: string) => n !== ".gitkeep");
     const projectUuid = projectDirs[0];
-    writeFileSync(join(projectsDir(tmp.root), projectUuid, "leaked-name.enc"), "x");
+    writeFileSync(join(projectGitRoot(tmp.root), projectUuid, "leaked-name.enc"), "x");
     const r = await runVerify(tmp.root, "pw");
     expect(r.ok).toBe(false);
     expect(r.violations.some(v => v.includes("leaked-name.enc"))).toBe(true);
   });
 
-  it("catches non-empty cache directory", async () => {
-    mkdirSync(join(tmp.root, ".risuvault", "cache", "some-uuid"), { recursive: true });
-    writeFileSync(join(tmp.root, ".risuvault", "cache", "some-uuid", "leaked.txt"), "x");
+  it("catches missing project_work/ rule in .gitignore", async () => {
+    writeFileSync(join(tmp.root, ".gitignore"), "inbox/*\noutbox/*\n/dist/\n");
     const r = await runVerify(tmp.root, "pw");
     expect(r.ok).toBe(false);
-    expect(r.violations.some(v => v.includes("cache/"))).toBe(true);
+    expect(r.violations.some(v => v.includes("project_work/"))).toBe(true);
   });
 
   it("catches missing .gitignore inbox rule", async () => {
@@ -60,7 +59,7 @@ describe("runVerify", () => {
 
   it("passes with a proper .gitignore", async () => {
     writeFileSync(join(tmp.root, ".gitignore"),
-      "inbox/*\noutbox/*\n.risuvault/cache/\n/dist/\n");
+      "project_work/\ninbox/*\noutbox/*\n/dist/\n");
     const r = await runVerify(tmp.root, "pw");
     expect(r.ok).toBe(true);
   });

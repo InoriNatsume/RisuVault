@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { runInit } from "../../src/primitives/init.js";
 import { runAdd } from "../../src/primitives/add.js";
-import { runUnlock } from "../../src/primitives/unlock.js";
+import { runWipeWork } from "../../src/primitives/wipe-work.js";
 import { runStatus } from "../../src/primitives/status.js";
 import { createTempVaultRoot } from "../helpers/tmp-vault.js";
 import { writeFileSync } from "node:fs";
@@ -26,14 +26,14 @@ describe("runStatus", () => {
   });
   afterEach(() => tmp.cleanup());
 
-  it("reports locked for freshly added project", async () => {
+  it("reports work state for freshly added project (work dir exists)", async () => {
     const rows = await runStatus(tmp.root, "pw");
-    expect(rows[0].state).toBe("locked");
+    expect(rows[0].state).toBe("work");
   });
 
-  it("reports unlocked after unlock", async () => {
-    await runUnlock(tmp.root, "pw", "s");
+  it("reports git-only after wipe-work", async () => {
+    await runWipeWork(tmp.root, "pw", "s");
     const rows = await runStatus(tmp.root, "pw");
-    expect(rows[0].state).toBe("unlocked");
+    expect(rows[0].state).toBe("git-only");
   });
 });
