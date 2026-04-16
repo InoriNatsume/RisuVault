@@ -7,7 +7,7 @@ import { writeFileSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { projectGitRoot } from "../../src/core/paths.js";
 // @ts-ignore
-import { encodeRisupContainer } from "risupack/dist/formats/risup/container-risup.js";
+import { encodeRisupContainer } from "../../src/risupack/src/formats/risup/container-risup.js";
 
 async function writeFakePreset(p: string): Promise<void> {
   const preset = { name: "s", mainPrompt: "p", jailbreak: "", globalNote: "", customPromptTemplateToggle: false, templateDefaultVariables: "", regex: [], promptTemplate: [] };

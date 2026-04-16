@@ -10,7 +10,7 @@ import { openDb, listProjectFiles } from "../../src/core/db.js";
 import { deriveKey, computeHashedName } from "../../src/core/crypto.js";
 import { readConfig } from "../../src/core/config.js";
 // @ts-ignore
-import { encodeRisupContainer } from "risupack/dist/formats/risup/container-risup.js";
+import { encodeRisupContainer } from "../../src/risupack/src/formats/risup/container-risup.js";
 
 async function writeFakePreset(path: string): Promise<void> {
   const preset = { name: "s", mainPrompt: "p", jailbreak: "", globalNote: "", customPromptTemplateToggle: false, templateDefaultVariables: "", regex: [], promptTemplate: [] };

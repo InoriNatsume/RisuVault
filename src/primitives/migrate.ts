@@ -5,7 +5,7 @@ import {
 import { join, relative } from "node:path";
 import { readConfig } from "../core/config.js";
 import { deriveKey, decryptBuffer, encryptBuffer, computeHashedName, decryptFile } from "../core/crypto.js";
-import { openDb, listProjects, upsertProjectFile, clearProjectFiles, listProjectFiles } from "../core/db.js";
+import { openDb, listProjects, upsertProjectFile, clearProjectFiles, listProjectFiles, deleteProjectFile } from "../core/db.js";
 import { dbPath, projectGitRoot, projectGitDir, projectWorkDir } from "../core/paths.js";
 import { walkFiles } from "../core/walk.js";
 import { dirname } from "node:path";
@@ -15,6 +15,7 @@ export interface MigrateResult {
   filesRenamed: number;
   layoutMigrated: boolean;
   workDirsCreated: number;
+  workspaceGuidanceRemoved: number;
 }
 
 export async function runMigrate(root: string, passphrase: string): Promise<MigrateResult> {
@@ -23,6 +24,7 @@ export async function runMigrate(root: string, passphrase: string): Promise<Migr
 
   let layoutMigrated = false;
   let workDirsCreated = 0;
+  let workspaceGuidanceRemoved = 0;
 
   // Phase 1: rename projects/ → project_git/ if old layout present
   const oldProjectsDir = join(root, "projects");
@@ -91,9 +93,53 @@ export async function runMigrate(root: string, passphrase: string): Promise<Migr
         }
         workDirsCreated++;
       }
+
+      // Phase 3: remove workspace-guidance files (AGENTS.md, .agents/) that
+      // RisuPack used to inject per-project. They are now vault-level skills.
+      workspaceGuidanceRemoved += cleanWorkspaceGuidanceFromProject(
+        db, p.uuid, pDir, projectWorkDir(root, p.name)
+      );
     }
-    return { projectsMigrated, filesRenamed, layoutMigrated, workDirsCreated };
+    return { projectsMigrated, filesRenamed, layoutMigrated, workDirsCreated, workspaceGuidanceRemoved };
   } finally { db.close(); }
+}
+
+const GUIDANCE_PATHS_PREFIX = ".agents/";
+const GUIDANCE_PATHS_EXACT = "AGENTS.md";
+
+/**
+ * Delete AGENTS.md and .agents/** from project_git (encrypted) and project_work,
+ * and remove the corresponding DB rows.
+ * Returns the number of .enc files removed.
+ */
+function cleanWorkspaceGuidanceFromProject(
+  db: ReturnType<typeof openDb>,
+  uuid: string,
+  encDir: string,
+  workDir: string
+): number {
+  let removed = 0;
+  const files = listProjectFiles(db, uuid);
+  for (const { originalPath, hashedName } of files) {
+    if (originalPath !== GUIDANCE_PATHS_EXACT && !originalPath.startsWith(GUIDANCE_PATHS_PREFIX)) {
+      continue;
+    }
+    // Remove encrypted file
+    const encPath = join(encDir, `${hashedName}.enc`);
+    rmSync(encPath, { force: true });
+    // Remove plaintext file from work dir if present
+    if (existsSync(workDir)) {
+      rmSync(join(workDir, originalPath), { force: true });
+    }
+    deleteProjectFile(db, uuid, originalPath);
+    removed++;
+  }
+  // Also remove the .agents/ directory itself if now empty
+  if (existsSync(workDir)) {
+    rmSync(join(workDir, ".agents"), { recursive: true, force: true });
+    rmSync(join(workDir, "AGENTS.md"), { force: true });
+  }
+  return removed;
 }
 
 function removeEmptyDirs(root: string, keepDirNames: string[]): void {

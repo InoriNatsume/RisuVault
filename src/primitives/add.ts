@@ -54,6 +54,11 @@ export async function runAdd(
 
     await extractWith(resolve(inputPath), stagingDir);
 
+    // Strip vault-level workspace-guidance injected by RisuPack extractor.
+    // These are now provided at vault level via .claude/skills/; no need to
+    // encrypt and store them per-project.
+    pruneWorkspaceGuidance(stagingDir);
+
     const fileKey = randomBytes(32);
     const encDir = projectGitDir(root, uuid);
     const workDir = projectWorkDir(root, name);
@@ -87,4 +92,10 @@ export async function runAdd(
     rmSync(stagingDir, { recursive: true, force: true });
     return { uuid, name, kind };
   } finally { db.close(); }
+}
+
+/** Remove AGENTS.md and .agents/ that RisuPack injects at extract time. */
+function pruneWorkspaceGuidance(dir: string): void {
+  rmSync(join(dir, "AGENTS.md"), { force: true });
+  rmSync(join(dir, ".agents"), { recursive: true, force: true });
 }

@@ -1,4 +1,4 @@
-import { runExtractCommand, runBuildCommand } from "risupack/dist/app/commands.js";
+import { runExtractCommand, runBuildCommand } from "../risupack/src/app/commands.js";
 
 export async function extractWith(inputPath: string, projectDir: string) {
   return runExtractCommand(inputPath, projectDir);

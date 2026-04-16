@@ -39,6 +39,10 @@ export async function runSync(
 
       mkdirSync(encDir, { recursive: true });
 
+      // Remove vault-level workspace-guidance from work dir before syncing.
+      rmSync(join(workDir, "AGENTS.md"), { force: true });
+      rmSync(join(workDir, ".agents"), { recursive: true, force: true });
+
       const plainFiles = walkFiles(workDir, { excludeDirs: ["assets"] });
       const currentRelPaths = new Set<string>();
 

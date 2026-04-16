@@ -14,7 +14,7 @@ import { dbPath } from "../../src/core/paths.js";
 import { readConfig } from "../../src/core/config.js";
 import { walkFiles } from "../../src/core/walk.js";
 // @ts-ignore
-import { encodeRisupContainer } from "risupack/dist/formats/risup/container-risup.js";
+import { encodeRisupContainer } from "../../src/risupack/src/formats/risup/container-risup.js";
 
 async function writeFakePreset(path: string): Promise<void> {
   const preset = {
