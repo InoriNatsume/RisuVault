@@ -2,8 +2,8 @@ import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { readConfig } from "../core/config.js";
 import { deriveKey, decryptBuffer } from "../core/crypto.js";
-import { openDb, listProjects, listProjectFiles } from "../core/db.js";
-import { dbPath, projectGitRoot, projectGitDir } from "../core/paths.js";
+import { openDb, listProjects, listProjectFiles, getOrCreateRefsKey } from "../core/db.js";
+import { dbPath, projectGitRoot, projectGitDir, refGitDir } from "../core/paths.js";
 import { UserError } from "../core/errors.js";
 
 export interface VerifyResult {
@@ -41,7 +41,8 @@ export async function runVerify(root: string, passphrase: string): Promise<Verif
       { pattern: /^project_work\/\s*$/m, label: "project_work/" },
       { pattern: /^inbox\/\*\s*$/m, label: "inbox/*" },
       { pattern: /^outbox\/\*\s*$/m, label: "outbox/*" },
-      { pattern: /^\/dist\/\s*$/m, label: "/dist/" }
+      { pattern: /^\/dist\/\s*$/m, label: "/dist/" },
+      { pattern: /^global_refs\/ref_work\/\s*$/m, label: "global_refs/ref_work/" }
     ];
     for (const { pattern, label } of requiredPatterns) {
       if (!pattern.test(content)) {
@@ -95,6 +96,31 @@ export async function runVerify(root: string, passphrase: string): Promise<Verif
           filesChecked++;
         } catch (e) {
           violations.push(`project ${p.uuid}: ${f.hashedName}.enc failed to decrypt (${(e as Error).message})`);
+        }
+      }
+    }
+
+
+    // 5. global_refs/ref_git/ integrity check
+    const rGitDir = refGitDir(root);
+    if (existsSync(rGitDir)) {
+      const refsKey = getOrCreateRefsKey(db);
+      for (const entry of readdirSync(rGitDir)) {
+        const full = join(rGitDir, entry);
+        const st = statSync(full);
+        if (st.isDirectory()) {
+          violations.push(`global_refs/ref_git/${entry}: subdirectory not allowed (must be flat)`);
+          continue;
+        }
+        if (!entry.endsWith(".enc")) {
+          violations.push(`global_refs/ref_git/${entry}: non-.enc file found`);
+          continue;
+        }
+        try {
+          decryptBuffer(readFileSync(full), refsKey);
+          filesChecked++;
+        } catch (e) {
+          violations.push(`global_refs/ref_git/${entry}: failed to decrypt (${(e as Error).message})`);
         }
       }
     }

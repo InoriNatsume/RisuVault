@@ -14,6 +14,8 @@ import { runHistory } from "./primitives/history.js";
 import { runRotatePassphrase } from "./primitives/rotate-passphrase.js";
 import { runMigrate } from "./primitives/migrate.js";
 import { runVerify } from "./primitives/verify.js";
+import { runRefsSync } from "./primitives/refs-sync.js";
+import { runRefsPull } from "./primitives/refs-pull.js";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { UserError } from "./core/errors.js";
@@ -167,6 +169,22 @@ program.command("migrate").description("migrate vault layout (projects/ → proj
       (r.layoutMigrated ? ", renamed projects/ → project_git/" : "") +
       (r.workDirsCreated > 0 ? `, created ${r.workDirsCreated} work dir(s)` : "")
     );
+  }));
+
+program.command("refs-sync").description("encrypt global_refs/ref_work/ → global_refs/ref_git/")
+  .option("--json", "json output")
+  .action(async (opts) => withHandle(async () => {
+    const pw = await acquirePassphrase();
+    const r = await runRefsSync(".", pw);
+    emit(!!opts.json, r, () => `refs-sync: ${r.synced} encrypted, ${r.removed} stale removed`);
+  }));
+
+program.command("refs-pull").description("decrypt global_refs/ref_git/ → global_refs/ref_work/")
+  .option("--json", "json output")
+  .action(async (opts) => withHandle(async () => {
+    const pw = await acquirePassphrase();
+    const r = await runRefsPull(".", pw);
+    emit(!!opts.json, r, () => `refs-pull: ${r.pulled} decrypted`);
   }));
 
 program.command("rotate-passphrase").description("change the vault passphrase (re-encrypts vault.db)")

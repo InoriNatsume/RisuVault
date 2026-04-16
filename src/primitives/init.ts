@@ -1,10 +1,11 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  vaultDir, dbPath, projectGitRoot, projectWorkRoot, inboxDir, outboxDir
+  vaultDir, dbPath, projectGitRoot, projectWorkRoot, inboxDir, outboxDir,
+  refGitDir, refWorkDir
 } from "../core/paths.js";
 import { generateDefaultConfig, writeConfig } from "../core/config.js";
-import { openDb, initDbSchema } from "../core/db.js";
+import { openDb, initDbSchema, getOrCreateRefsKey } from "../core/db.js";
 import { deriveKey } from "../core/crypto.js";
 import { UserError } from "../core/errors.js";
 
@@ -28,6 +29,9 @@ outbox/*
 # Node
 node_modules/
 *.log
+
+# global_refs work area — 평문 gitignored
+global_refs/ref_work/
 `;
 
 export async function runInit(root: string, passphrase: string): Promise<void> {
@@ -39,6 +43,8 @@ export async function runInit(root: string, passphrase: string): Promise<void> {
   mkdirSync(projectWorkRoot(root), { recursive: true });
   mkdirSync(inboxDir(root), { recursive: true });
   mkdirSync(outboxDir(root), { recursive: true });
+  mkdirSync(refGitDir(root), { recursive: true });
+  mkdirSync(refWorkDir(root), { recursive: true });
 
   // Write a safe default .gitignore so verify passes out of the box.
   const gitignorePath = join(root, ".gitignore");
@@ -52,5 +58,6 @@ export async function runInit(root: string, passphrase: string): Promise<void> {
   const key = await deriveKey(passphrase, Buffer.from(config.kdf.saltHex, "hex"));
   const db = openDb(dbPath(root), key);
   initDbSchema(db);
+  getOrCreateRefsKey(db);
   db.close();
 }

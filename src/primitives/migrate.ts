@@ -5,8 +5,8 @@ import {
 import { join, relative } from "node:path";
 import { readConfig } from "../core/config.js";
 import { deriveKey, decryptBuffer, encryptBuffer, computeHashedName, decryptFile } from "../core/crypto.js";
-import { openDb, listProjects, upsertProjectFile, clearProjectFiles, listProjectFiles, deleteProjectFile } from "../core/db.js";
-import { dbPath, projectGitRoot, projectGitDir, projectWorkDir } from "../core/paths.js";
+import { openDb, listProjects, upsertProjectFile, clearProjectFiles, listProjectFiles, deleteProjectFile, getOrCreateRefsKey } from "../core/db.js";
+import { dbPath, projectGitRoot, projectGitDir, projectWorkDir, refGitDir, refWorkDir } from "../core/paths.js";
 import { walkFiles } from "../core/walk.js";
 import { dirname } from "node:path";
 
@@ -100,6 +100,15 @@ export async function runMigrate(root: string, passphrase: string): Promise<Migr
         db, p.uuid, pDir, projectWorkDir(root, p.name)
       );
     }
+    // Phase 4: create global_refs directories and ensure refs_key exists
+    if (!existsSync(refGitDir(root))) {
+      mkdirSync(refGitDir(root), { recursive: true });
+    }
+    if (!existsSync(refWorkDir(root))) {
+      mkdirSync(refWorkDir(root), { recursive: true });
+    }
+    getOrCreateRefsKey(db);
+
     return { projectsMigrated, filesRenamed, layoutMigrated, workDirsCreated, workspaceGuidanceRemoved };
   } finally { db.close(); }
 }

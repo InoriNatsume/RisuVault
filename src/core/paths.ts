@@ -11,3 +11,6 @@ export function projectWorkRoot(root: string) { return join(root, "project_work"
 export function projectWorkDir(root: string, name: string) { return join(projectWorkRoot(root), name); }
 export function inboxDir(root: string) { return join(root, "inbox"); }
 export function outboxDir(root: string) { return join(root, "outbox"); }
+export function globalRefsDir(root: string) { return join(root, "global_refs"); }
+export function refGitDir(root: string) { return join(globalRefsDir(root), "ref_git"); }
+export function refWorkDir(root: string) { return join(globalRefsDir(root), "ref_work"); }

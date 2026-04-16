@@ -59,8 +59,16 @@ describe("runVerify", () => {
 
   it("passes with a proper .gitignore", async () => {
     writeFileSync(join(tmp.root, ".gitignore"),
-      "project_work/\ninbox/*\noutbox/*\n/dist/\n");
+      "project_work/\ninbox/*\noutbox/*\n/dist/\nglobal_refs/ref_work/\n");
     const r = await runVerify(tmp.root, "pw");
     expect(r.ok).toBe(true);
+  });
+
+  it("catches missing global_refs/ref_work/ rule in .gitignore", async () => {
+    writeFileSync(join(tmp.root, ".gitignore"),
+      "project_work/\ninbox/*\noutbox/*\n/dist/\n");
+    const r = await runVerify(tmp.root, "pw");
+    expect(r.ok).toBe(false);
+    expect(r.violations.some(v => v.includes("global_refs/ref_work/"))).toBe(true);
   });
 });

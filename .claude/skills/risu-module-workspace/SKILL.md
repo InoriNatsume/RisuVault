@@ -3,6 +3,15 @@ name: risu-module-workspace
 description: Use when editing a module workspace inside project_work/<name>/ — describes lorebook/regex/trigger layout for risum modules
 ---
 
+## Before editing: read vault-wide reference docs
+
+If `global_refs/ref_work/` contains any `.md` files, read them all first. They define
+editing rules that apply across the entire vault (character voice constraints, tone
+guidelines, canon boundaries, NSFW policy, etc.).
+
+If `global_refs/ref_work/` is missing or empty after a fresh clone, run:
+`risuvault refs-pull`
+
 # Workspace Risu Module Skill
 
 This file is a **workspace-only skill** for an unpacked RisuAI module workspace in RisuVault.

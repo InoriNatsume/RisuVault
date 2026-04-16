@@ -2,6 +2,7 @@ import Database from "better-sqlite3-multiple-ciphers";
 import type { Database as DB } from "better-sqlite3-multiple-ciphers";
 import type { ProjectRecord, BuildHistoryEntry } from "../types.js";
 import { AuthError } from "./errors.js";
+import { randomBytes } from "node:crypto";
 
 export function openDb(path: string, key: Buffer): DB {
   const db = new Database(path);
@@ -49,6 +50,10 @@ export function initDbSchema(db: DB): void {
       PRIMARY KEY (project_uuid, original_path)
     );
     CREATE INDEX IF NOT EXISTS idx_project_files_hash ON project_files(project_uuid, hashed_name);
+    CREATE TABLE IF NOT EXISTS vault_meta (
+      key TEXT PRIMARY KEY,
+      value BLOB NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS schema_meta (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -61,6 +66,25 @@ export function initDbSchema(db: DB): void {
   } catch {
     // Column already exists — ignore
   }
+}
+
+export function getVaultMeta(db: DB, key: string): Buffer | undefined {
+  const r = db.prepare("SELECT value FROM vault_meta WHERE key=?").get(key) as { value: Buffer } | undefined;
+  return r?.value;
+}
+
+export function setVaultMeta(db: DB, key: string, value: Buffer): void {
+  db.prepare(`INSERT INTO vault_meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`).run(key, value);
+}
+
+export function getOrCreateRefsKey(db: DB): Buffer {
+  let key = getVaultMeta(db, "refs_key");
+  if (!key) {
+    const newKey = randomBytes(32);
+    setVaultMeta(db, "refs_key", newKey);
+    return newKey;
+  }
+  return key;
 }
 
 interface ProjectRow {

@@ -71,6 +71,22 @@ On top of that, still verify manually:
 | `.gitignore missing required rule` | Restore the missing pattern. Default `.gitignore` comes from `risuvault init`. |
 | `project_git/<uuid>: directory missing` | DB references a project whose files were deleted. Investigate before committing. |
 
+## Vault-wide reference docs
+
+`global_refs/` holds documents that apply across every project. Use it for editing
+rules, tone guidelines, canon constraints — anything that belongs to the vault rather
+than a specific project.
+
+- `global_refs/ref_git/<name>.enc` — encrypted (AES-256-GCM with vault-wide refs_key), git-committed.
+  **Filenames are public** (only content is encrypted) — pick filenames that don't leak
+  sensitive labels.
+- `global_refs/ref_work/<name>` — plaintext working copy, gitignored, disposable.
+- `risuvault refs-sync` — encrypt work → git (before commit)
+- `risuvault refs-pull` — decrypt git → work (after clone or wipe)
+- Directory must be flat — no subdirectories in ref_git/.
+
+Skills should reference `global_refs/ref_work/` for project-spanning editing guidance.
+
 ## Skill location reminder
 
 Skills for this project live at `.claude/skills/` inside the repo. Do not write RisuVault-specific skills or memories to `~/.claude/`. Anything project-scoped must travel with the clone.

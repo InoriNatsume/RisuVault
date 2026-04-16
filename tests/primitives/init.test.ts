@@ -3,7 +3,8 @@ import { runInit } from "../../src/primitives/init.js";
 import { createTempVaultRoot } from "../helpers/tmp-vault.js";
 import { existsSync, readFileSync } from "node:fs";
 import {
-  configPath, dbPath, vaultDir, projectGitRoot, projectWorkRoot, inboxDir, outboxDir
+  configPath, dbPath, vaultDir, projectGitRoot, projectWorkRoot, inboxDir, outboxDir,
+  refGitDir, refWorkDir
 } from "../../src/core/paths.js";
 import { UserError } from "../../src/core/errors.js";
 
@@ -21,6 +22,8 @@ describe("runInit", () => {
     expect(existsSync(projectWorkRoot(tmp.root))).toBe(true);
     expect(existsSync(inboxDir(tmp.root))).toBe(true);
     expect(existsSync(outboxDir(tmp.root))).toBe(true);
+    expect(existsSync(refGitDir(tmp.root))).toBe(true);
+    expect(existsSync(refWorkDir(tmp.root))).toBe(true);
     const cfg = JSON.parse(readFileSync(configPath(tmp.root), "utf8"));
     expect(cfg.vaultVersion).toBe(1);
     expect(cfg.kdf.saltHex.length).toBe(64);

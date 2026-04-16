@@ -3,6 +3,15 @@ name: risu-bot-workspace
 description: Use when editing a bot workspace inside project_work/<name>/ — describes card/pack/module layout for charx/png bots
 ---
 
+## Before editing: read vault-wide reference docs
+
+If `global_refs/ref_work/` contains any `.md` files, read them all first. They define
+editing rules that apply across the entire vault (character voice constraints, tone
+guidelines, canon boundaries, NSFW policy, etc.).
+
+If `global_refs/ref_work/` is missing or empty after a fresh clone, run:
+`risuvault refs-pull`
+
 # Workspace Risu Bot Skill
 
 This file is a **workspace-only skill** for an unpacked RisuAI bot workspace in RisuVault.
