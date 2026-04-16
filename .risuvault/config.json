@@ -1,0 +1,15 @@
+{
+  "vaultVersion": 1,
+  "kdf": {
+    "algorithm": "argon2id",
+    "memoryCost": 65536,
+    "timeCost": 3,
+    "parallelism": 1,
+    "saltHex": "40a3b3a168405b33acaa6c40978df3252b5426f5c666c93bd316db98203eba9c"
+  },
+  "dbCipher": "sqlcipher-aes-256",
+  "fileCipher": "aes-256-gcm",
+  "passphraseSource": {
+    "type": "manual"
+  }
+}

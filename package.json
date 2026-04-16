@@ -1,0 +1,28 @@
+{
+  "name": "risuvault",
+  "version": "0.1.0",
+  "description": "Encrypted, version-managed backup of RisuAI files to public GitHub repos",
+  "type": "module",
+  "bin": { "risuvault": "./dist/cli.js" },
+  "main": "./dist/index.js",
+  "exports": { ".": "./dist/index.js" },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "argon2": "^0.41.1",
+    "better-sqlite3-multiple-ciphers": "^11.8.1",
+    "commander": "^12.1.0",
+    "risupack": "file:../RisuPack"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": { "node": ">=20" }
+}
