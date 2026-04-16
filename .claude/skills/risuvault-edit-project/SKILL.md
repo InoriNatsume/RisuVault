@@ -30,7 +30,8 @@ description: Use when the user wants to edit a registered vault project — unlo
    - Artifact encrypted at `projects/<uuid>/dist/<name>.<ext>.enc`. Plaintext copy placed in `outbox/<name>.<ext>`.
 6. `risuvault lock <name>` — re-encrypts edits, removes plaintext cache.
 7. To import into RisuAI: use `outbox/<name>.<ext>` directly, or run `risuvault export <name>` to re-generate it from the encrypted artifact.
-8. Remind user: `git add . && git commit -m "edit <name>"`.
+8. **Before commit: run `risuvault verify`** (exit 0 required; fix any violations first).
+9. Commit with a **neutral message** (no project/character/asset names): `git add . && git commit -m "edit 1 project"`.
 
 ## Important rules
 - NEVER commit the plaintext cache. `.risuvault/cache/` is `.gitignore`'d.

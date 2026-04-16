@@ -13,6 +13,7 @@ import { runHistory } from "./primitives/history.js";
 import { runExport } from "./primitives/export.js";
 import { runRotatePassphrase } from "./primitives/rotate-passphrase.js";
 import { runMigrate } from "./primitives/migrate.js";
+import { runVerify } from "./primitives/verify.js";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { UserError } from "./core/errors.js";
@@ -134,6 +135,22 @@ async function promptNewPassphrase(): Promise<string> {
     rl.close();
   }
 }
+
+program.command("verify").description("pre-commit check: all vault files encrypted and names safe")
+  .option("--json", "json output")
+  .action(async (opts) => withHandle(async () => {
+    const pw = await acquirePassphrase();
+    const r = await runVerify(".", pw);
+    if (opts.json) {
+      process.stdout.write(JSON.stringify(r, null, 2) + "\n");
+    } else if (r.ok) {
+      process.stdout.write(`verify OK: ${r.projectsChecked} projects, ${r.filesChecked} files\n`);
+    } else {
+      process.stderr.write(`verify FAILED (${r.violations.length} violation(s)):\n`);
+      for (const v of r.violations) process.stderr.write(`  - ${v}\n`);
+    }
+    if (!r.ok) process.exit(1);
+  }));
 
 program.command("migrate").description("migrate project file layout to hashed filenames")
   .option("--json", "json output")

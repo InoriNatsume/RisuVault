@@ -18,7 +18,8 @@ description: Use when the user wants to register a new bot/module/preset file fr
 2. Ask for the passphrase. Accept `RISUVAULT_PASSPHRASE` env var if set.
 3. Run: `RISUVAULT_PASSPHRASE=<pw> risuvault add <file> --name <name> --json`
 4. Report the returned `uuid` and `kind`.
-5. Remind the user to `git add . && git commit && git push` to back up remotely.
+5. **Before committing, run `risuvault verify`** (exit 0 required). Fix any violations first.
+6. Remind the user to commit with a **neutral message** (no project/character names): `git add . && git commit -m "add 1 project" && git push`.
 
 ## If AI hits limits (human fallback)
 User can do the same with the CLI directly:
