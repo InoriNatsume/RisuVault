@@ -16,7 +16,7 @@
     "argon2": "^0.41.1",
     "better-sqlite3-multiple-ciphers": "^11.8.1",
     "commander": "^12.1.0",
-    "risupack": "file:../RisuPack"
+    "risupack": "git+https://github.com/InoriNatsume/RisuPack.git"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
